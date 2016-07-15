@@ -1,0 +1,4 @@
+# vtask gitignore
+
+# ignore some directories
+/ml-100k
