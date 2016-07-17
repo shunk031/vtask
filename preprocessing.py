@@ -31,6 +31,7 @@ class PreprocessingDataset:
 
     def _load_info_data(self):
         """
+        infoファイルから情報を読み込む
         :rtype: TYPE info情報のリスト
         """
         info_array = []
@@ -47,6 +48,7 @@ class PreprocessingDataset:
 
     def _print_dataset_info(self):
         """
+        読み込んだデータの基本情報を出力する
         :rtype: TYPE なし
         """
         print("Loaded dataset")
@@ -70,7 +72,7 @@ class PreprocessingDataset:
 
         movie_array = []
         for user_num in range(1, self.ALL_USERS + 1):
-            print("Now processing user no. %d" % user_num)
+            print("Now processing user no.%d" % user_num)
             movie_array_ = []
 
             # 同じuser idのデータを取り出す
@@ -102,8 +104,14 @@ class PreprocessingDataset:
         np_movie_table = np.array(movie_array)
 
         # column名を指定してDataFrameを作成
-        column_name = range(1, self.ALL_ITEMS + 1)
+        column_name = ["movie%d" %
+                       movie_num for movie_num in range(1, self.ALL_ITEMS + 1)]
         df_movie_table = pd.DataFrame(np_movie_table, columns=column_name)
+
+        # index名を変更
+        index_name = ["user%d" %
+                      user_num for user_num in range(1, self.ALL_USERS + 1)]
+        df_movie_table.index = index_name
 
         # CSVファイルへ出力
         df_movie_table.to_csv('movie_table.csv')
