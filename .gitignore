@@ -2,3 +2,7 @@
 
 # ignore some directories
 /ml-100k
+/.ipynb_checkpoints
+
+# ignore some files
+*.csv
