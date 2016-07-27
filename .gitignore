@@ -3,3 +3,4 @@
 # ignore some directories
 /ml-100k
 .ipynb_checkpoints/
+__pycache__/
