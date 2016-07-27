@@ -6,6 +6,8 @@ import numpy as np
 import time
 import csv
 
+from utils import DATA_DIR
+
 
 class PreprocessingDataset:
 
@@ -15,11 +17,9 @@ class PreprocessingDataset:
         :param TYPE info: インフォファイルのファイル名
         :rtype: TYPE
         """
-        self.DATA_DIR = os.path.join(os.path.dirname(
-            os.path.realpath("__file__")), "ml-100k")
 
-        self.dataset_file = os.path.join(self.DATA_DIR, dataset)
-        self.info_file = os.path.join(self.DATA_DIR, info)
+        self.dataset_file = dataset
+        self.info_file = info
 
         info_array = self._load_info_data()
 
@@ -36,9 +36,11 @@ class PreprocessingDataset:
         """
         info_array = []
 
+        # infoファイルを読み込む
         with open(self.info_file, 'r') as f:
             reader = csv.reader(f, delimiter='\t')
 
+            # 各行に書かれている内容を取得
             for row in reader:
                 info_ = row[0]
                 info = info_.split(" ")
@@ -85,14 +87,11 @@ class PreprocessingDataset:
                 # 取り出した結果データが存在しない場合はnanを入れる
                 if len(movie_rating) == 0:
                     movie_array_ .append(np.nan)
-                    # print("Now id: %d Movie no. %d unrated." %
-                    #       (user_num, movie_num))
+
                 else:
                     # レーティングの数値を取り出す
                     rating = int(movie_rating['rating'].values)
                     movie_array_.append(rating)
-                    # print("Now id: %d, add rating %s (Movie no. %d)" %
-                    #       (user_num, rating, movie_num))
 
             movie_array.append(movie_array_)
 
@@ -114,19 +113,51 @@ class PreprocessingDataset:
         df_movie_table.index = index_name
 
         # CSVファイルへ出力
-        df_movie_table.to_csv('movie_table.csv')
+        output_file = os.path.join(DATA_DIR, "movie_table.csv")
+        df_movie_table.to_csv(output_file)
 
 
-def main():
+class PreprocessingUItem:
 
-    # 読み込むデータセットとinfoファイルを定義
-    dataset = "u.data"
-    info_file = "u.info"
+    def __init__(self, uitem, file_encoding='ISO-8859-1'):
+        """
+        :param TYPE uitem: u.itemのpath
+        :param TYPE file_encoding='ISO-8859-1': u.itemのエンコーディングを指定
+        :rtype: TYPE
+        """
+        self.uitem_file = uitem
+        self.file_encoding = file_encoding
 
-    # データセットを用いて前処理を行ったCSVファイルを出力
-    ppd = PreprocessingDataset(dataset, info_file)
-    ppd.preprocessing()
+    def preprocessing(self):
 
+        # u.itemを読み込む
+        with open(self.uitem_file, 'r', encoding=self.file_encoding) as f:
+            reader = csv.reader(f, delimiter='\t')
+            u_items = [row for row in reader]
 
-if __name__ == '__main__':
-    main()
+        # "|"で区切ったものをリストに格納する
+        new_u_items = [self._split_items(u_item) for u_item in u_items]
+
+        # ファイルの出力
+        output_file = os.path.join(DATA_DIR, "u_item.csv")
+        with open(output_file, 'w', encoding='utf-8') as w:
+            writer = csv.writer(w)
+
+            # データのヘッダーを指定
+            header = ["movie id", "movie title", "release data", "video release date", "IMDb URL", "unknown", "Action", "Adventure", "Animation", "Children's",
+                      "Comedy", "Crime", "Documentary", "Drama", "Fantasy", "Film-Noir", "Horror", "Musical", "Mystery", "Romance", "Sci-Fi", "Thriller", "War", "Western"]
+
+            writer.writerow(header)
+            for row in new_u_items:
+                writer.writerow(row)
+
+    def _split_items(self, u_item):
+        """
+        :param TYPE u_item: u_itemの行
+        :rtype: TYPE \"|\"で区切ったリスト
+        """
+
+        s = u_item[0]
+        s = s.split("|")
+
+        return s

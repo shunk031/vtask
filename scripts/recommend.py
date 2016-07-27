@@ -17,10 +17,6 @@ class Recommend:
         :rtype: TYPE
         """
 
-        # PATHの追加
-        self.DATA_DIR = os.path.join(os.path.dirname(
-            os.path.realpath("__file__")), "ml-100k")
-
         # 評価データの読み込み
         self.rating_data = pd.read_csv(rating_data, index_col=0)
         # 評価データの基本情報の読み込み
@@ -36,6 +32,13 @@ class Recommend:
         # レコメンドを行うターゲットユーザーのデータを抽出
         self.target_user = self.rating_data.ix[target_user]
 
+        # 推薦度を格納するディクショナリを用意
+        self.recom_rating = {}
+
+        # 類似ユーザを格納するディクショナリを用意
+        self.similar_user = {}
+
+        # データセットの情報を表示する
         self._print_dataset_info()
 
     def _load_info_data(self):
@@ -66,53 +69,55 @@ class Recommend:
 
     def sim_pearson(self, user1, user2):
 
-        # 同じユーザ同士は0を返すようにする
+        # 同じユーザ同士は0を返す
         if user1.equals(user2):
             return 0.0
 
-        user1_mean = user1.mean()
-        user2_mean = user2.mean()
-
-        _sum = 0
-        _count = 0
-        sos1 = 0
-        sos2 = 0
-
+        # user1, user2両者が評価した映画を取得
+        both_rated = []
         for i in range(1, self.ALL_ITEMS + 1):
             movie_name = "movie%d" % i
 
+            # user1, user2両者が評価した映画かどうか判定
             if not(math.isnan(user1[movie_name]) or math.isnan(user2[movie_name])):
-                # 分子部分を計算
-                _dev1 = user1[movie_name] - user1_mean
-                _dev2 = user2[movie_name] - user2_mean
-                _calc = _dev1 * _dev2
-                _sum += _calc
+                both_rated.append(movie_name)
 
-                # 分母部分を計算
-                _var1 = _dev1 ** 2
-                _var2 = _dev2 ** 2
-                sos1 += _var1
-                sos2 += _var2
-
-                _count += 1
-
-        # 共通しているアイテムが1個以下の場合は0を返す
-        if _count <= 1:
+        # user1とuser2両者が評価した映画の数を取得
+        number_of_ratings = len(both_rated)
+        # もし両方が評価した映画の数が0なら0を返す
+        if number_of_ratings == 0:
             return 0.0
 
-        _sqrt1 = math.sqrt(sos1)
-        _sqrt2 = math.sqrt(sos2)
+        user1_mean = sum([user1[movie]
+                          for movie in both_rated]) / number_of_ratings
+        user2_mean = sum([user2[movie]
+                          for movie in both_rated]) / number_of_ratings
 
+        # 分子の計算
+        numer = float(sum([(user1[movie] - user1_mean) *
+                           (user2[movie] - user2_mean) for movie in both_rated]))
+
+        # 分母の計算
+        denom1 = math.sqrt(
+            sum([(user1[movie] - user1_mean) ** 2 for movie in both_rated]))
+        denom2 = math.sqrt(
+            sum([(user2[movie] - user2_mean) ** 2 for movie in both_rated]))
+
+        # ピアソン相関係数を計算
         try:
-            pearson_corr = _sum / (_sqrt1 * _sqrt2)
+            pearosn_corr = numer / (denom1 * denom2)
         except ZeroDivisionError as e:
-            pearson_corr = 0
+            # print(e)
+            pearosn_corr = 0
 
-        return pearson_corr
+        return pearosn_corr
 
     def get_similar_user(self):
+        """
+        ターゲットユーザに似ているユーザを表示する
+        :rtype: TYPE
+        """
         score_dict = {}
-        best_score = {}
 
         for i in range(1, self.ALL_USERS + 1):
             user_name = "user%d" % i
@@ -120,71 +125,87 @@ class Recommend:
             pc = self.sim_pearson(self.target_user, user_data)
             score_dict[user_name] = pc
 
-        _count = 0
+        count = 0
         for user, score in sorted(score_dict.items(), key=lambda x: x[1], reverse=True):
-            if _count == 10:
+            if count == 10:
                 break
 
             print("%s: %f" % (user, score))
-            best_score[user] = score
-            _count += 1
-            print("fin")
+            self.similar_user[user] = score
+            count += 1
+
+    def _calc_average(self, user):
+        """
+        受け取ったデータからnanを含めないデータ数で
+        評価値の平均を計算する
+
+        :param TYPE user: pandas.seriesのデータ
+        :rtype: TYPE ユーザの評価値の平均
+        """
+
+        n = [x for x in user if not(math.isnan(x))]
+        d = len(n)
+        sum_n = sum(n)
+
+        return sum_n / d
 
     def _calc_recom_score(self, target_movie):
 
-        _sum1 = 0
-        _sum2 = 0
-
+        # target_movieを評価しているユーザを取得する
+        rated_target_movie = []
         for i in range(1, self.ALL_USERS + 1):
             user_name = "user%d" % i
             user_data = self.rating_data.ix[user_name]
 
+            # target_movieを評価しているユーザかどうか判定
             if not(math.isnan(user_data[target_movie])):
-                _pc = self.sim_pearson(self.target_user, user_data)
-                _calc = _pc * (user_data[target_movie] - user_data.mean())
-                _sum1 += _calc
+                rated_target_movie.append(user_name)
 
-                abs_pc = math.fabs(_pc)
-                _sum2 += abs_pc
+        # 推薦度を計算
+        sum1 = 0
+        sum2 = 0
+        for user in rated_target_movie:
+            user_data = self.rating_data.ix[user]
+            pc = self.sim_pearson(self.target_user, user_data)
 
-        recom = self.target_user.mean() + _sum1 / _sum2
+            # 分子の計算
+            calc = pc * (user_data[target_movie] -
+                         self._calc_average(user_data))
+            sum1 += calc
+
+            # 分母の計算
+            abs_pc = math.fabs(pc)
+            sum2 += abs_pc
+
+        if sum2 == 0:
+            recom = 0
+        else:
+            recom = self._calc_average(self.target_user) + sum1 / sum2
+
         return recom
 
     def recommend(self):
 
-        recom_rating = {}
-
         for i in range(1, self.ALL_ITEMS + 1):
             movie_name = "movie%d"
 
-            # まだターゲットとなるユーザが評価していない映画について処理を行う
+            # ターゲットユーザがまだ評価していない映画について処理を行う
             if math.isnan(self.target_user[movie_name]):
+
+                # 推薦度を計算
                 recom = self._calc_recom_score(movie_name)
-                recom_rating[movie_name] = recom
+                self.recom_rating[movie_name] = recom
 
-        self.print_recom_movie(recom_rating)
+        # 推薦度が高い上位10作品について表示
+        self.print_recom_movie(self.recom_rating)
 
-    def _print_recom_movie(self, recom_rating):
+    def print_recom_movie(self, recom_rating, num=10):
 
-        _count = 0
+        count = 0
         for movie, score in sorted(recom_rating.items(), key=lambda x: x[1], reverse=True):
-            # 上位10作品を表示する
-            if _count == 10:
+            # 上位num作品を表示する
+            if count == num:
                 break
 
             print("%s: score %.1f" % (movie, score))
-            _count += 1
-
-
-def main():
-
-    rating_data = "movie_table.csv"
-    info_file = "u.info"
-    target_user = "user2"
-
-    rc = Recommend(rating_data, info_file, target_user)
-    print("Called get_similar_user()")
-    rc.get_similar_user()
-
-if __name__ == '__main__':
-    main()
+            count += 1
