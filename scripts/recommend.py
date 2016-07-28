@@ -4,7 +4,6 @@ import os
 import numpy as np
 import pandas as pd
 import math
-import time
 import csv
 
 from utils import DATA_DIR
@@ -12,21 +11,17 @@ from utils import DATA_DIR
 
 class Recommend:
 
-    def __init__(self, rating_data, info_data, target_user):
-        """
-        :param TYPE dataset: データセットのファイル名
-        :param TYPE info:    infoファイルのファイル名
-        :rtype: TYPE
-        """
+    def __init__(self, rating_file, info_file, movie_file, target_user):
 
         # 評価データの読み込み
-        self.rating_data = pd.read_csv(rating_data, index_col=0)
+        self.rating_data = pd.read_csv(rating_file, index_col=0)
         # 評価データの基本情報の読み込み
-        self.info_file = os.path.join(DATA_DIR, info_data)
-
-        info_array = self._load_info_data()
+        self.info_data = info_file
+        # 映画データの読み込み
+        self.movie_data = self._load_movie_data(movie_file)
 
         # 評価データの基本情報
+        info_array = self._load_info_data()
         self.ALL_USERS = int(info_array[0])
         self.ALL_ITEMS = int(info_array[1])
         self.ALL_RATINGS = int(info_array[2])
@@ -48,9 +43,9 @@ class Recommend:
         infoファイルから情報を読み込む
         :rtype: TYPE info情報のリスト
         """
-        info_array = []
 
-        with open(self.info_file, 'r') as f:
+        info_array = []
+        with open(self.info_data, 'r') as f:
             reader = csv.reader(f, delimiter='\t')
 
             for row in reader:
@@ -59,6 +54,24 @@ class Recommend:
                 info_array.append(info[0])
 
         return info_array
+
+    def _load_movie_data(self, movie_file):
+        """
+        u_item.csvから映画情報を読み込む
+        :rtype: TYPE 映画情報リスト
+        """
+
+        movie_data = []
+        with open(movie_file, 'r') as f:
+            reader = csv.reader(f)
+
+            # ヘッダ行を飛ばす
+            next(reader)
+
+            for row in reader:
+                movie_data.append(row)
+
+            return movie_data
 
     def _print_dataset_info(self):
         """
@@ -203,11 +216,17 @@ class Recommend:
 
     def print_recom_movie(self, recom_rating, num=10):
 
-        count = 0
-        for movie, score in sorted(recom_rating.items(), key=lambda x: x[1], reverse=True):
-            # 上位num作品を表示する
-            if count == num:
-                break
+        if len(recom_rating) == 0:
+            print("Not yet calculated the recommend score")
 
-            print("%s: score %.1f" % (movie, score))
-            count += 1
+        else:
+            count = 0
+            for movie, score in sorted(recom_rating.items(), key=lambda x: x[1], reverse=True):
+                # 上位num作品を表示する
+                if count == num:
+                    break
+
+                id = movie.replace("movie", "")
+                print("title: %s" % (self.movie_data[int(id) - 1][1]))
+                print("%s: score %.1f\n" % (movie, score))
+                count += 1
