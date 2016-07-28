@@ -7,6 +7,8 @@ import math
 import time
 import csv
 
+from utils import DATA_DIR
+
 
 class Recommend:
 
@@ -20,7 +22,7 @@ class Recommend:
         # 評価データの読み込み
         self.rating_data = pd.read_csv(rating_data, index_col=0)
         # 評価データの基本情報の読み込み
-        self.info_file = os.path.join(self.DATA_DIR, info_data)
+        self.info_file = os.path.join(DATA_DIR, info_data)
 
         info_array = self._load_info_data()
 
@@ -187,7 +189,7 @@ class Recommend:
     def recommend(self):
 
         for i in range(1, self.ALL_ITEMS + 1):
-            movie_name = "movie%d"
+            movie_name = "movie%d" % i
 
             # ターゲットユーザがまだ評価していない映画について処理を行う
             if math.isnan(self.target_user[movie_name]):
